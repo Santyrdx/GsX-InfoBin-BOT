@@ -1,14 +1,23 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+import os
+import telebot
+from dotenv import load_dotenv
 import requests
 
-TOKEN = "AAF6upNwQhBrIxtMIjTUX8SslvouHcSCu9k"
+# Cargar variables de entorno desde .env
+load_dotenv()
+TOKEN = os.getenv("BOT_TOKEN")
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hola 👋 Soy GsX InfoBin BOT.\nEnvíame un BIN con el formato: `.bin 457173`")
+bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = """ℹ️ *Cómo usar GsX InfoBin BOT*:
+# Comando /start
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.reply_to(message, "Hola 👋 Soy GsX InfoBin BOT.\n Tu bot de confianza para consultar bins V1.\n Owner: @TYRANTGsX")
+
+# Comando /help
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    help_text = """ℹ️ *Consutar bin: ".bin xxxxxx"*:
 
 Envía un BIN en el siguiente formato:
 
@@ -25,19 +34,20 @@ Y recibirás información como:
 
 GsX InfoBin BOT
 """
-    await update.message.reply_text(help_text, parse_mode="Markdown")
+    bot.reply_to(message, help_text)
 
+# Función para obtener la información del BIN
 def get_bin_info(bin_number):
     try:
         response = requests.get(f"https://lookup.binlist.net/{bin_number}")
         if response.status_code == 200:
             data = response.json()
-            return f"""💳 Información del BIN: {bin_number}
-Banco: {data.get('bank', {}).get('name', 'Desconocido')}
-Tipo: {data.get('type', 'Desconocido')}
-Marca: {data.get('scheme', 'Desconocido').upper()}
-Nivel: {data.get('brand', 'Desconocido')}
-País: {data.get('country', {}).get('name', 'Desconocido')} {data.get('country', {}).get('emoji', '')}
+            return f"""💳 *Información del BIN: {bin_number}*
+*Banco:* {data.get('bank', {}).get('name', 'Desconocido')}
+*Tipo:* {data.get('type', 'Desconocido')}
+*Marca:* {data.get('scheme', 'Desconocido').upper()}
+*Nivel:* {data.get('brand', 'Desconocido')}
+*País:* {data.get('country', {}).get('name', 'Desconocido')} {data.get('country', {}).get('emoji', '')}
 
 GsX InfoBin BOT
 """
@@ -46,29 +56,21 @@ GsX InfoBin BOT
     except Exception as e:
         return f"⚠️ Error al buscar el BIN: {str(e)}\n\nGsX InfoBin BOT"
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
+# Mensajes que no son comandos
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    text = message.text.strip()
 
     if text.lower().startswith(".bin "):
         bin_input = text[5:].strip()
-
         if bin_input.isdigit() and 6 <= len(bin_input) <= 8:
             info = get_bin_info(bin_input)
-            await update.message.reply_text(info)
+            bot.reply_to(message, info)
         else:
-            await update.message.reply_text("❌ El BIN debe tener entre 6 y 8 dígitos numéricos.")
+            bot.reply_to(message, "❌ Hey imbecil el BIN debe tener al menos 6 dígitos numéricos.")
     else:
-        await update.message.reply_text("ℹ️ Para consultar un BIN, escribe: .bin 457173")
+        bot.reply_to(message, "ℹ️ Para consultar un BIN, escribe: .bin 457173")
 
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    print("GsX InfoBin BOT está activo...")
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+# Iniciar el bot
+print("✅ GsX InfoBin BOT está activo...")
+bot.infinity_polling()
